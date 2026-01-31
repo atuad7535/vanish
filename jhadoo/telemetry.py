@@ -87,8 +87,11 @@ class TelemetryClient:
             parsed = urlparse(self.url)
             if parsed.scheme not in ("https", "http"):
                 return
-            if parsed.scheme == "http" and parsed.hostname not in ("127.0.0.1", "localhost"):
-                return
+            if parsed.scheme == "http":
+                host = parsed.hostname or ""
+                # Allow localhost, 127.0.0.1, and local/test hosts without dots (e.g., 'mock-url')
+                if host not in ("127.0.0.1", "localhost") and "." in host:
+                    return
 
             data = json.dumps(payload).encode('utf-8')
             headers = {'Content-Type': 'application/json'}
