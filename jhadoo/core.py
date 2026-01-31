@@ -12,6 +12,7 @@ from typing import List, Dict, Any, Tuple, Optional
 from .config import Config
 from .utils import (
     ProgressBar,
+    Spinner,
     confirm_deletion,
     bytes_to_human_readable,
     check_size_threshold,
@@ -105,29 +106,42 @@ class CleanupEngine:
         cutoff_date = datetime.now() - timedelta(days=days_threshold)
         candidates = []
         exclusions = self.config.get("exclusions", [])
-        
         logger.info(f"\n🔍 Scanning {main_folder} for '{target_name}' folders...")
-        
-        # First pass: count directories for progress bar
-        total_dirs = sum(1 for _, dirs, _ in os.walk(main_folder) if target_name in dirs)
-        
-        if total_dirs == 0:
-            logger.info(f"No '{target_name}' folders found.")
-            return candidates
-        
-        progress = ProgressBar(total_dirs, prefix=f"Scanning '{target_name}'", width=40)
-        
-        for root, dirs, files in os.walk(main_folder):
+
+        # Prune common heavy directories unless they are the target we are looking for
+        default_prune = {'.git', '.hg', '.svn', '.cache', '.m2', '.gradle', '.next', '.nuxt', '.venv', 'Library', 'node_modules'}
+        if target_name in default_prune:
+            default_prune.discard(target_name)
+
+        spinner = Spinner(message=f"Scanning '{target_name}'...")
+        scanned = 0
+
+        for root, dirs, files in os.walk(main_folder, topdown=True, followlinks=False):
+            # Prune symlinked directories and heavy defaults
+            pruned = []
+            for d in list(dirs):
+                full = os.path.join(root, d)
+                if os.path.islink(full):
+                    pruned.append(d)
+                    continue
+                if d in default_prune:
+                    pruned.append(d)
+            for d in pruned:
+                try:
+                    dirs.remove(d)
+                except ValueError:
+                    pass
+
             if target_name in dirs:
                 target_path = os.path.join(root, target_name)
                 
                 # Safety checks
                 if is_protected_path(target_path):
-                    progress.update(suffix="(skipped - protected)")
+                    spinner.spin()
                     continue
                 
                 if is_path_excluded(target_path, exclusions):
-                    progress.update(suffix="(skipped - excluded)")
+                    spinner.spin()
                     continue
                 
                 # Check modification time of parent folder
@@ -143,11 +157,14 @@ class CleanupEngine:
                         "type": "folder",
                         "target_name": target_name
                     })
-                    progress.update(suffix=f"({bytes_to_human_readable(folder_size)})")
+                    spinner.spin()
                 else:
-                    progress.update(suffix="(too recent)")
-        
-        progress.finish()
+                    spinner.spin()
+            scanned += 1
+            if scanned % 200 == 0:
+                spinner.spin()
+
+        spinner.finish(f"Found {len(candidates)} '{target_name}' candidates")
         logger.info(f"✓ Found {len(candidates)} '{target_name}' folders eligible for cleanup")
         
         return candidates
@@ -173,9 +190,8 @@ class CleanupEngine:
                 archive_folder = self.config.get("safety", {}).get("archive_folder")
                 os.makedirs(archive_folder, exist_ok=True)
                 
-                # Create unique archive path
-                rel_path = os.path.relpath(path, "/")
-                archive_path = os.path.join(archive_folder, rel_path)
+                # Create unique archive path (cross-platform, safe)
+                archive_path = self._compute_archive_path(archive_folder, path)
                 os.makedirs(os.path.dirname(archive_path), exist_ok=True)
                 
                 shutil.move(path, archive_path)
@@ -354,6 +370,29 @@ class CleanupEngine:
         
         return self.stats["bin_size"]
 
+    def _compute_archive_path(self, archive_root: str, src_path: str) -> str:
+        """Compute a safe archive destination path across platforms.
+        
+        On Windows, avoid using '/' root; drop drive letter and prefix a short hash to prevent collisions.
+        On Unix, build relative to '/' without leading slash.
+        """
+        try:
+            from hashlib import sha1
+            p = Path(src_path)
+            # Normalize absolute path
+            abs_path = str(p.resolve())
+            # Drive handling (Windows)
+            drive, tail = os.path.splitdrive(abs_path)
+            tail = tail.lstrip("\\/")  # remove leading separators
+            # Short hash prefix for uniqueness and to avoid very long paths
+            prefix = sha1(abs_path.encode("utf-8")).hexdigest()[:8]
+            rel = os.path.join(prefix, tail) if tail else prefix
+            return os.path.join(archive_root, rel)
+        except Exception:
+            # Fallback: join filename with hash
+            base = os.path.basename(src_path) or "item"
+            return os.path.join(archive_root, base)
+
     def analyze_git_repositories(self):
         """Analyze git repositories for health issues."""
         if not self.config.get("git", {}).get("enabled", True):
@@ -509,6 +548,10 @@ class CleanupEngine:
         logger.info(f"{'='*60}")
         logger.info(f"Started: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info(f"Mode: {'DRY RUN' if self.dry_run else ('ARCHIVE' if self.archive_mode else 'DELETE')}")
+        # Communicate runtime assumptions and feature toggles
+        logger.info(f"Git analysis: {'ON' if self.config.get('git', {}).get('enabled', False) else 'OFF'}  |  Docker cleanup: {'ON' if self.config.get('docker', {}).get('enabled', False) else 'OFF'}")
+        prunes = ['.git', '.hg', '.svn', '.cache', '.m2', '.gradle', '.next', '.nuxt', '.venv', 'Library', 'node_modules']
+        logger.info(f"Default pruned directories during scan (unless targeted): {', '.join(prunes)}")
         
         try:
             # Ensure directories exist
@@ -552,6 +595,15 @@ class CleanupEngine:
             logger.info(f"\n{'='*60}")
             logger.info(f"✅ Cleanup completed in {duration:.1f} seconds")
             logger.info(f"{'='*60}")
+            # Insight summary for user
+            total_mb = (folders_size + bin_size) / (1024 * 1024)
+            logger.info(f"\n📈 Insights:")
+            logger.info(f"   • Total freed this run: {bytes_to_human_readable(folders_size + bin_size)}")
+            logger.info(f"   • Items processed: {self.stats['folders_deleted']} folders, {self.stats['bin_deleted']} bin entries")
+            if self.config.get('telemetry', {}).get('enabled', True):
+                logger.info("   • Anonymous telemetry: ENABLED (use `jhadoo --telemetry-off` to disable)")
+            else:
+                logger.info("   • Anonymous telemetry: DISABLED (enable with `jhadoo --telemetry-on`)")
             
             return {
                 "success": True,

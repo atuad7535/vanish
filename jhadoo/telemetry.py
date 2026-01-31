@@ -10,9 +10,12 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 import urllib.request
 import urllib.error
+from urllib.parse import urlparse
+import hmac
+import hashlib
 
-# Placeholder URL - User needs to deploy the server function first
-DEFAULT_TELEMETRY_URL = "https://your-cloud-function-url.cloudfunctions.net/jhadoo-telemetry"
+# No baked-in URL. Must be provided via env or config.
+DEFAULT_TELEMETRY_URL = ""
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +26,8 @@ class TelemetryClient:
     def __init__(self, config: Any):
         self.config = config
         self.enabled = config.get("telemetry", {}).get("enabled", True)
-        self.url = config.get("telemetry", {}).get("url", DEFAULT_TELEMETRY_URL)
+        # Precedence: env TELEMETRY_URL -> config -> default (empty)
+        self.url = os.getenv("TELEMETRY_URL") or config.get("telemetry", {}).get("url", DEFAULT_TELEMETRY_URL)
         self.user_id = self._get_or_create_user_id()
 
     def _get_or_create_user_id(self) -> str:
@@ -56,13 +60,16 @@ class TelemetryClient:
         if not self.enabled:
             return
 
+        # Resolve version dynamically
+        from . import __version__ as pkg_version
+
         payload = {
             "user_id": self.user_id,
             "bytes_saved": bytes_saved,
             "duration_seconds": duration_seconds,
             "timestamp": datetime.now().isoformat(),
             "os": platform.system(),
-            "version": "1.1.0", # TODO: Get dynamically
+            "version": pkg_version,
             "python_version": platform.python_version()
         }
 
@@ -74,16 +81,33 @@ class TelemetryClient:
     def _send_request(self, payload: Dict[str, Any]):
         """Internal method to send HTTP request."""
         try:
-            # Check if URL is configured
-            if "your-cloud-function-url" in self.url:
-                return # Silently fail if not configured
+            # Check if URL is configured and secure
+            if not self.url:
+                return  # Silently skip if not configured
+            parsed = urlparse(self.url)
+            if parsed.scheme not in ("https", "http"):
+                return
+            if parsed.scheme == "http" and parsed.hostname not in ("127.0.0.1", "localhost"):
+                return
 
             data = json.dumps(payload).encode('utf-8')
-            req = urllib.request.Request(
-                self.url,
-                data=data,
-                headers={'Content-Type': 'application/json'}
-            )
+            headers = {'Content-Type': 'application/json'}
+
+            # Optional API key header
+            api_key = os.getenv("TELEMETRY_TOKEN")
+            if api_key:
+                headers['X-API-Key'] = api_key
+
+            # Optional HMAC signing with timestamp
+            signing_key = os.getenv("TELEMETRY_SIGNING_KEY")
+            if signing_key:
+                ts = datetime.utcnow().isoformat()
+                headers['X-Timestamp'] = ts
+                to_sign = (ts + "\n").encode("utf-8") + data
+                sig = hmac.new(signing_key.encode("utf-8"), to_sign, hashlib.sha256).hexdigest()
+                headers['X-Signature'] = sig
+
+            req = urllib.request.Request(self.url, data=data, headers=headers)
             with urllib.request.urlopen(req, timeout=5) as response:
                 if response.status != 200:
                     logger.debug(f"Telemetry failed with status {response.status}")

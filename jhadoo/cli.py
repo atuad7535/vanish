@@ -11,6 +11,7 @@ from .config import Config
 from .core import CleanupEngine
 from .scheduler import Scheduler
 from .utils import bytes_to_human_readable
+from . import __version__
 
 
 def show_dashboard(config: Config):
@@ -267,7 +268,7 @@ Examples:
     parser.add_argument(
         '--version', '-v',
         action='version',
-        version='%(prog)s 1.2.0'
+        version=f'%(prog)s {__version__}'
     )
     
     args = parser.parse_args()

@@ -105,6 +105,15 @@ def validate_path_safety(path: str) -> tuple[bool, str]:
     if is_protected_path(path):
         return False, f"Cannot delete protected system path: {path}"
     
+    # Do not follow symlinks into protected locations
+    try:
+        if os.path.islink(path):
+            target = os.path.realpath(path)
+            if is_protected_path(target):
+                return False, f"Symlink points to protected path: {target}"
+    except Exception:
+        pass
+    
     # Check if it's too close to root
     path_obj = Path(path)
     if len(path_obj.parts) <= 2:

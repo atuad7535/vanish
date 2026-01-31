@@ -15,11 +15,11 @@ setup(
     description="Smart cleanup tool for developers - removes unused venv, node_modules, Docker images, scans Git repos, and more",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/jhadoo",  # Update with your GitHub URL
+    url="https://github.com/bhav09/jhadoo",
     project_urls={
-        "Bug Tracker": "https://github.com/yourusername/jhadoo/issues",
-        "Documentation": "https://github.com/yourusername/jhadoo#readme",
-        "Source Code": "https://github.com/yourusername/jhadoo",
+        "Bug Tracker": "https://github.com/bhav09/jhadoo/issues",
+        "Documentation": "https://github.com/bhav09/jhadoo#readme",
+        "Source Code": "https://github.com/bhav09/jhadoo",
     },
     packages=find_packages(exclude=["tests", "tests.*"]),
     classifiers=[

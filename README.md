@@ -1,14 +1,28 @@
-# 🧹 jhadoo - Universal Cleanup Tool
+# 🧹 jhadoo — one command to reclaim disk space
 
-Smart cleanup for **any** unused files/folders in your projects. Works with Python, Node.js, Rust, Go, Java, C++, or custom folders.
+Smart cleanup for **any** unused files/folders in your projects. Works with Python, Node.js, Rust, Go, Java, C++, or anything you throw at it — safely.
 
-[![PyPI version](https://badge.fury.io/py/jhadoo.svg)](https://badge.fury.io/py/jhadoo)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI version](https://badge.fury.io/py/jhadoo.svg)](https://badge.fury.io/py/jhadoo) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+> If this saved you GBs, please ⭐️ the repo to help others discover it.
+
+## TL;DR
+
+```bash
+# Best UX: pipx (isolated)
+pipx install jhadoo
+
+# Preview (safe)
+jhadoo --dry-run
+
+# Clean now
+jhadoo
+```
 
 ## Quick Start
 
 ```bash
-# Install
+# Install with pip (alternative)
 pip install jhadoo
 
 # Preview (safe)
@@ -30,11 +44,20 @@ jhadoo --restore
 jhadoo --schedule daily --archive
 ```
 
-## Privacy & Telemetry (New in v1.2.0)
-Jhadoo collects **anonymous** usage statistics to global storage savings.
-- **What we collect**: Randomly generated User ID, bytes saved, OS type, and Jhadoo version.
-- **What we DO NOT collect**: IP addresses, file names, paths, or any personal data.
-- **Opt-out**: Run `jhadoo --telemetry-off` at any time.
+## Why jhadoo?
+- **Instant value**: Runs in seconds; preview first.
+- **Universal**: venv, node_modules, build/dist, caches, or custom names.
+- **Safe by default**: Dry‑run, size caps, confirmations, archive/restore.
+- **Fast**: Prunes heavy dirs during scan (e.g., `.git`, `node_modules`, `.venv`, `.cache`, `Library`, etc.).
+- **Cross‑platform**: macOS, Windows, Linux.
+- **Private**: Anonymous, opt‑out‑anytime telemetry (details below).
+
+## What’s new (v1.2.0)
+- Default scan pruning for speed (skips heavyweight dirs unless they are the target).
+- Safer cross‑platform archive paths; reliable restore.
+- Robust scheduling (quoted commands) on Unix/Windows.
+- Telemetry hardened (no URL in code; HTTPS enforced; optional API key/HMAC).
+- Git analysis and Docker cleanup are now opt‑in (off by default).
 
 ## Dashboard
 View your personal savings and trends:
@@ -45,9 +68,9 @@ jhadoo --dashboard
 ## Features
 
 - **Universal**: Works with ANY file/folder name (venv, node_modules, build, dist, target, or custom)
-- **New! Git Analysis**: Detects stale branches and large files in your git repositories
-- **New! Docker Cleanup**: Automatically cleans up unused Docker images (>60 days old)
-- **New! Undo/Restore**: Instantly restore archived items to their original location
+- **Git Analysis (opt‑in)**: Detect stale branches and large files
+- **Docker Cleanup (opt‑in)**: Prune unused images (>60 days)
+- **Undo/Restore**: Instantly restore archived items
 - **Safe**: Dry-run mode, size caps, confirmations, archive mode
 - **Scheduled**: Built-in cron/Task Scheduler integration
 - **Cross-platform**: macOS, Windows, Linux
@@ -56,28 +79,11 @@ jhadoo --dashboard
 ## Configuration
 
 ```bash
-# Generate config
+# Generate config (optional)
 jhadoo --generate-config
 
-# Edit and use
+# Use a custom config
 jhadoo --config jhadoo_config.json
-```
-
-Example config:
-```json
-{
-  "targets": [
-    {"name": "venv", "days_threshold": 7, "enabled": true},
-    {"name": "node_modules", "days_threshold": 14, "enabled": true},
-    {"name": "build", "days_threshold": 14, "enabled": true},
-    {"name": "YOUR_CUSTOM_FOLDER", "days_threshold": 7, "enabled": true}
-  ],
-  "exclusions": ["~/important-project"],
-  "safety": {
-    "size_threshold_mb": 5000,
-    "require_confirmation_above_mb": 500
-  }
-}
 ```
 
 ## Scheduling
@@ -97,27 +103,18 @@ jhadoo --list-schedules
 jhadoo --remove-schedule
 ```
 
-## Examples
+## Optional features
+```bash
+# Git analysis (opt‑in)
+jhadoo --git-check
 
-See [`examples/`](examples/) for detailed code examples:
-- **01_basic_usage.py** - Dry-run, archive, actual cleanup
-- **02_custom_config.py** - Custom configuration
-- **03_scheduling.py** - Automated scheduling
+# Docker cleanup (opt‑in)
+jhadoo --docker
 
-## Universal Support
-
-Works with all languages and build systems:
-
-| Language | Folders |
-|----------|---------|
-| Python | `venv`, `__pycache__`, `.pytest_cache`, `.tox` |
-| Node.js | `node_modules`, `.next`, `.nuxt` |
-| Rust | `target` |
-| Go | `vendor`, `bin` |
-| Java | `target`, `build`, `.gradle` |
-| C/C++ | `build`, `*.o` |
-| .NET | `bin`, `obj` |
-| **Custom** | **Any folder you specify!** |
+# Archive and later restore
+jhadoo --archive
+jhadoo --restore
+```
 
 ## Python API
 
@@ -162,11 +159,32 @@ Options:
 - **System protection**: Never touches OS directories
 - **Deletion manifest**: JSON log for recovery
 
+## Privacy & Telemetry
+Anonymous telemetry helps compute global space savings.
+- **We collect**: Random User ID, bytes saved, OS type, jhadoo version.
+- **We do NOT collect**: IPs, file names, paths, or personal data.
+- **Control**:
+  - Check: `jhadoo --telemetry-status`
+  - Disable: `jhadoo --telemetry-off`
+  - Enable: `jhadoo --telemetry-on`
+- **Backend (optional, for maintainers)**:
+  - Set at runtime (not in code): `TELEMETRY_URL` (HTTPS), optional `TELEMETRY_TOKEN`, `TELEMETRY_SIGNING_KEY`.
+  - HTTPS enforced (http allowed only for localhost).
+
 ## File Locations
 
 - Logs: `~/.jhadoo/cleanup_log.csv`
 - Manifest: `~/.jhadoo/deletion_manifest.json`
 - Archive: `~/.jhadoo_archive/`
+
+## Install
+```bash
+# Recommended
+pipx install jhadoo
+
+# Or with pip
+pip install jhadoo
+```
 
 ## License
 
@@ -174,4 +192,4 @@ MIT License - see [LICENSE](LICENSE)
 
 ---
 
-**[Examples](examples/) • [Publishing Guide](PUBLISHING.md) • [Technical Docs](jhadoo.md)**
+**[Examples](examples/) • [Technical Docs](jhadoo.md)**

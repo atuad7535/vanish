@@ -74,18 +74,18 @@ class Config:
             "level": "INFO"
         },
         "git": {
-            "enabled": True,
+            "enabled": False,
             "check_stale_branches": True,
             "check_large_files": True,
             "large_file_threshold_mb": 50
         },
         "docker": {
-            "enabled": True,
+            "enabled": False,
             "unused_image_days": 60
         },
         "telemetry": {
             "enabled": True,
-            "url": "https://your-cloud-function-url.cloudfunctions.net/jhadoo-telemetry"
+            "url": ""  # URL must be provided via env TELEMETRY_URL or user config
         }
     }
     

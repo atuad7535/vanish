@@ -51,3 +51,11 @@ deletion_manifest.json
 # IDEs
 .vscode/
 .idea/
+.DS_Store
+**/.DS_Store
+
+# Local-only backend and secrets (do not commit)
+gcp_backend/
+.secrets/
+*.service-account.json
+fleet-purpose-427308-k1-fa21b1076e6c.json

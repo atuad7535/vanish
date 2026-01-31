@@ -5,6 +5,7 @@ import platform
 import subprocess
 from typing import Optional
 import shutil
+import shlex
 
 
 class Scheduler:
@@ -30,20 +31,24 @@ class Scheduler:
     def schedule(self, frequency: str, config_path: Optional[str] = None, 
                  dry_run: bool = False, archive: bool = False) -> bool:
         """Schedule jhadoo to run automatically."""
-        cmd = self.jhadoo_path
+        cmd_parts = [self.jhadoo_path]
         if config_path:
-            cmd += f" --config {config_path}"
+            cmd_parts += ["--config", config_path]
         if dry_run:
-            cmd += " --dry-run"
+            cmd_parts += ["--dry-run"]
         if archive:
-            cmd += " --archive"
+            cmd_parts += ["--archive"]
         
         cron_expr = self._parse_frequency(frequency)
         
         if self.system in ["darwin", "linux"]:
-            return self._schedule_cron(cron_expr, cmd)
+            # Quote for shell/cron
+            quoted = " ".join(shlex.quote(p) for p in cmd_parts)
+            return self._schedule_cron(cron_expr, quoted)
         elif self.system == "windows":
-            return self._schedule_windows(frequency, cmd)
+            # Build single command string safely for Task Scheduler
+            cmd_str = subprocess.list2cmdline(cmd_parts)
+            return self._schedule_windows(frequency, cmd_str)
         
         print(f"❌ Unsupported OS: {self.system}")
         return False
