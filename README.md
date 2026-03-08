@@ -2,7 +2,7 @@
 
 Smart cleanup for **any** unused files/folders in your projects. Works with Python, Node.js, Rust, Go, Java, C++, or anything you throw at it — safely.
 
-[![PyPI version](https://badge.fury.io/py/jhadoo.svg)](https://badge.fury.io/py/jhadoo) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI version](https://badge.fury.io/py/jhadoo.svg)](https://badge.fury.io/py/jhadoo) [![Downloads](https://img.shields.io/pypi/dm/jhadoo?label=downloads)](https://pypi.org/project/jhadoo/) [![Total Downloads](https://static.pepy.tech/badge/jhadoo)](https://pepy.tech/projects/jhadoo) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > If this saved you GBs, please ⭐️ the repo to help others discover it.
 
