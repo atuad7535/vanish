@@ -60,17 +60,22 @@ class TelemetryClient:
         if not self.enabled:
             return
 
-        # Resolve version dynamically
         from . import __version__ as pkg_version
 
         payload = {
-            "user_id": self.user_id,
-            "bytes_saved": bytes_saved,
-            "duration_seconds": duration_seconds,
+            "event_type": "cleanup_completed",
+            "device_id": self.user_id,
             "timestamp": datetime.now().isoformat(),
-            "os": platform.system(),
             "version": pkg_version,
-            "python_version": platform.python_version()
+            "platform": {
+                "system": platform.system(),
+                "python_version": platform.python_version(),
+            },
+            "data": {
+                "bytes_saved": bytes_saved,
+                "total_size_mb": round(bytes_saved / (1024 * 1024), 2),
+                "duration_seconds": round(duration_seconds, 2),
+            },
         }
 
         # Run in a separate thread to not block CLI

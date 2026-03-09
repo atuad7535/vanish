@@ -41,24 +41,24 @@ class TestTelemetryClient(unittest.TestCase):
         mock_response.__enter__.return_value = mock_response
         mock_urlopen.return_value = mock_response
         
-        # We need to test the internal _send_request since send_stats is threaded
         payload = {
-            "user_id": "test-id",
-            "bytes_saved": 1000,
-            "duration": 1.5,
+            "event_type": "cleanup_completed",
+            "device_id": "test-id",
             "timestamp": "2023-01-01",
-            "os": "TestOS"
+            "version": "1.2.3",
+            "platform": {"system": "TestOS", "python_version": "3.12.0"},
+            "data": {"bytes_saved": 1000, "total_size_mb": 0.0, "duration_seconds": 1.5},
         }
-        
+
         self.client._send_request(payload)
-        
-        # Verify call
+
         self.assertTrue(mock_urlopen.called)
         req = mock_urlopen.call_args[0][0]
         self.assertEqual(req.full_url, "http://mock-url")
-        
+
         sent_data = json.loads(req.data.decode('utf-8'))
-        self.assertEqual(sent_data['bytes_saved'], 1000)
+        self.assertEqual(sent_data["data"]["bytes_saved"], 1000)
+        self.assertEqual(sent_data["event_type"], "cleanup_completed")
 
     def test_disabled_telemetry(self):
         """Test that disabled telemetry sends nothing."""
