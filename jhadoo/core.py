@@ -78,23 +78,35 @@ class CleanupEngine:
             logger.debug(f"Error calculating size for {path}: {e}")
         return total_size
     
+    # Folders whose modification time should be ignored when determining
+    # whether a parent project is stale (they are dependencies/artifacts,
+    # not developer activity).
+    _SKIP_FOR_MTIME = frozenset({
+        'venv', '.venv', 'node_modules', '__pycache__', '.pytest_cache',
+        'build', 'dist', '.tox', 'target', '.git', '.hg', '.svn',
+        '.cache', '.m2', '.gradle', '.next', '.nuxt', 'Library',
+    })
+
     def get_last_modified_time(self, folder_path: str) -> datetime:
-        """Get the most recent modification time in a folder."""
+        """Get the most recent modification time of *source* files in a folder.
+
+        Skips dependency/artifact directories so that only real developer
+        activity counts toward the timestamp.
+        """
         try:
             latest_time = os.path.getmtime(folder_path)
-            
-            for root, dirs, files in os.walk(folder_path):
-                for item in dirs + files:
-                    item_path = os.path.join(root, item)
-                    if os.path.exists(item_path):
-                        try:
-                            item_time = os.path.getmtime(item_path)
-                            latest_time = max(latest_time, item_time)
-                        except:
-                            pass  # Skip items we can't access
-            
+
+            for root, dirs, files in os.walk(folder_path, topdown=True):
+                dirs[:] = [d for d in dirs if d not in self._SKIP_FOR_MTIME]
+                for fname in files:
+                    fpath = os.path.join(root, fname)
+                    try:
+                        latest_time = max(latest_time, os.path.getmtime(fpath))
+                    except OSError:
+                        pass
+
             return datetime.fromtimestamp(latest_time)
-        except Exception as e:
+        except Exception:
             return datetime.now()
     
     def scan_for_targets(self, main_folder: str, target_name: str, days_threshold: int) -> List[Dict[str, Any]]:
@@ -144,8 +156,9 @@ class CleanupEngine:
                     spinner.spin()
                     continue
                 
-                # Check modification time of the target folder itself
-                last_modified = self.get_last_modified_time(target_path)
+                # Eligibility: parent project folder untouched for > threshold days
+                parent_path = root
+                last_modified = self.get_last_modified_time(parent_path)
                 
                 if last_modified < cutoff_date:
                     folder_size = self.get_size(target_path)
@@ -583,22 +596,21 @@ class CleanupEngine:
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
             
+            total_bytes = folders_size + bin_size
+
             # Send anonymous telemetry
             if not self.dry_run:
                 try:
-                    total_bytes = folders_size + bin_size
                     if total_bytes > 0:
                         self.telemetry.send_stats(total_bytes, duration)
                 except Exception:
-                    pass # Never fail due to telemetry
-            
+                    pass
+
             logger.info(f"\n{'='*60}")
-            logger.info(f"✅ Cleanup completed in {duration:.1f} seconds")
+            logger.info(f"✅ Cleanup completed in {duration:.1f} seconds  |  Space saved: {bytes_to_human_readable(total_bytes)}")
             logger.info(f"{'='*60}")
-            # Insight summary for user
-            total_mb = (folders_size + bin_size) / (1024 * 1024)
             logger.info(f"\n📈 Insights:")
-            logger.info(f"   • Total freed this run: {bytes_to_human_readable(folders_size + bin_size)}")
+            logger.info(f"   • Total freed this run: {bytes_to_human_readable(total_bytes)}")
             logger.info(f"   • Items processed: {self.stats['folders_deleted']} folders, {self.stats['bin_deleted']} bin entries")
             if self.config.get('telemetry', {}).get('enabled', True):
                 logger.info("   • Anonymous telemetry: ENABLED (use `jhadoo --telemetry-off` to disable)")
