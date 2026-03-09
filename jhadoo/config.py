@@ -30,6 +30,11 @@ class Config:
                 "enabled": True
             },
             {
+                "name": ".venv",
+                "days_threshold": 7,
+                "enabled": True
+            },
+            {
                 "name": ".pytest_cache",
                 "days_threshold": 30,
                 "enabled": False

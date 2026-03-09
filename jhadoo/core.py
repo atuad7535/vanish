@@ -144,9 +144,8 @@ class CleanupEngine:
                     spinner.spin()
                     continue
                 
-                # Check modification time of parent folder
-                parent_path = os.path.dirname(target_path)
-                last_modified = self.get_last_modified_time(parent_path)
+                # Check modification time of the target folder itself
+                last_modified = self.get_last_modified_time(target_path)
                 
                 if last_modified < cutoff_date:
                     folder_size = self.get_size(target_path)
@@ -548,10 +547,11 @@ class CleanupEngine:
         logger.info(f"{'='*60}")
         logger.info(f"Started: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info(f"Mode: {'DRY RUN' if self.dry_run else ('ARCHIVE' if self.archive_mode else 'DELETE')}")
-        # Communicate runtime assumptions and feature toggles
+        logger.info(f"Scan root: {self.config.get('main_folder')}")
+        targets = self.config.get_enabled_targets()
+        target_summary = ", ".join(f"{t['name']} (>{t['days_threshold']}d)" for t in targets)
+        logger.info(f"Targets: {target_summary}")
         logger.info(f"Git analysis: {'ON' if self.config.get('git', {}).get('enabled', False) else 'OFF'}  |  Docker cleanup: {'ON' if self.config.get('docker', {}).get('enabled', False) else 'OFF'}")
-        prunes = ['.git', '.hg', '.svn', '.cache', '.m2', '.gradle', '.next', '.nuxt', '.venv', 'Library', 'node_modules']
-        logger.info(f"Default pruned directories during scan (unless targeted): {', '.join(prunes)}")
         
         try:
             # Ensure directories exist
