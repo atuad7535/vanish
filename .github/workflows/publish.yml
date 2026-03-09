@@ -36,8 +36,6 @@ jobs:
     name: Publish to PyPI
     needs: build
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
     environment:
       name: pypi
       url: https://pypi.org/p/jhadoo
@@ -52,4 +50,5 @@ jobs:
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           attestations: false
+          trusted-publishing: never
 
