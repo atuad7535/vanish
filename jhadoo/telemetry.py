@@ -22,7 +22,7 @@ def _default_endpoint() -> str:
     """Resolve the built-in collection endpoint at runtime."""
     # Encoded to avoid plain-text URL in source / installed package.
     # Decode: base64 → UTF-8 string
-    _EP = b""  # placeholder — set during release
+    _EP = b"aHR0cHM6Ly9qaGFkb28tdHJhbnNwb3J0LTQ2NzY2NTM0NDI0My51cy1jZW50cmFsMS5ydW4uYXBwL2FwaS9pbnNpZ2h0cw=="
     try:
         return base64.b64decode(_EP).decode() if _EP else ""
     except Exception:
