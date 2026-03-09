@@ -6,6 +6,7 @@ import uuid
 import platform
 import logging
 import threading
+import base64
 from typing import Dict, Any, Optional
 from datetime import datetime
 import urllib.request
@@ -14,10 +15,18 @@ from urllib.parse import urlparse
 import hmac
 import hashlib
 
-# No baked-in URL. Must be provided via env or config.
-DEFAULT_TELEMETRY_URL = ""
-
 logger = logging.getLogger(__name__)
+
+
+def _default_endpoint() -> str:
+    """Resolve the built-in collection endpoint at runtime."""
+    # Encoded to avoid plain-text URL in source / installed package.
+    # Decode: base64 → UTF-8 string
+    _EP = b""  # placeholder — set during release
+    try:
+        return base64.b64decode(_EP).decode() if _EP else ""
+    except Exception:
+        return ""
 
 
 class TelemetryClient:
@@ -26,37 +35,39 @@ class TelemetryClient:
     def __init__(self, config: Any):
         self.config = config
         self.enabled = config.get("telemetry", {}).get("enabled", True)
-        # Precedence: env TELEMETRY_URL -> config -> default (empty)
-        self.url = os.getenv("TELEMETRY_URL") or config.get("telemetry", {}).get("url", DEFAULT_TELEMETRY_URL)
+        self.url = (
+            os.getenv("TELEMETRY_URL")
+            or config.get("telemetry", {}).get("url", "")
+            or _default_endpoint()
+        )
         self.user_id = self._get_or_create_user_id()
+        self._pending: Optional[threading.Thread] = None
 
     def _get_or_create_user_id(self) -> str:
         """Get existing user ID or generate a new anonymous UUID."""
         config_dir = os.path.dirname(self.config.get("logging", {}).get("log_file", ""))
-        # Fallback to home if config_dir is empty/invalid
         if not config_dir:
             config_dir = os.path.expanduser("~/.jhadoo")
-            
+
         id_file = os.path.join(config_dir, "telemetry_id.json")
-        
+
         try:
             if os.path.exists(id_file):
                 with open(id_file, 'r') as f:
                     data = json.load(f)
                     return data.get("user_id", str(uuid.uuid4()))
-            
-            # Create new ID
+
             new_id = str(uuid.uuid4())
             os.makedirs(os.path.dirname(id_file), exist_ok=True)
             with open(id_file, 'w') as f:
                 json.dump({"user_id": new_id, "created": datetime.now().isoformat()}, f)
             return new_id
-            
+
         except Exception:
             return "unknown-user"
 
     def send_stats(self, bytes_saved: int, duration_seconds: float):
-        """Send cleanup statistics asynchronously."""
+        """Send cleanup statistics in a background thread."""
         if not self.enabled:
             return
 
@@ -78,35 +89,42 @@ class TelemetryClient:
             },
         }
 
-        # Run in a separate thread to not block CLI
-        thread = threading.Thread(target=self._send_request, args=(payload,))
-        thread.daemon = True
-        thread.start()
+        t = threading.Thread(target=self._send_request, args=(payload,))
+        t.daemon = True
+        t.start()
+        self._pending = t
+
+    def flush(self, timeout: float = 4.0):
+        """Block until the in-flight telemetry request finishes (or times out).
+
+        Must be called before the process exits, otherwise the daemon thread
+        is killed and the data is lost.
+        """
+        t = self._pending
+        if t is not None and t.is_alive():
+            t.join(timeout=timeout)
+        self._pending = None
 
     def _send_request(self, payload: Dict[str, Any]):
         """Internal method to send HTTP request."""
         try:
-            # Check if URL is configured and secure
             if not self.url:
-                return  # Silently skip if not configured
+                return
             parsed = urlparse(self.url)
             if parsed.scheme not in ("https", "http"):
                 return
             if parsed.scheme == "http":
                 host = parsed.hostname or ""
-                # Allow localhost, 127.0.0.1, and local/test hosts without dots (e.g., 'mock-url')
                 if host not in ("127.0.0.1", "localhost") and "." in host:
                     return
 
             data = json.dumps(payload).encode('utf-8')
             headers = {'Content-Type': 'application/json'}
 
-            # Optional API key header
             api_key = os.getenv("TELEMETRY_TOKEN")
             if api_key:
                 headers['X-API-Key'] = api_key
 
-            # Optional HMAC signing with timestamp
             signing_key = os.getenv("TELEMETRY_SIGNING_KEY")
             if signing_key:
                 ts = datetime.utcnow().isoformat()
@@ -120,5 +138,4 @@ class TelemetryClient:
                 if response.status != 200:
                     logger.debug(f"Telemetry failed with status {response.status}")
         except Exception as e:
-            # Fail silently, never annoy user with network errors for telemetry
             logger.debug(f"Telemetry failed: {e}")

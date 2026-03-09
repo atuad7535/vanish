@@ -606,6 +606,12 @@ class CleanupEngine:
                 except Exception:
                     pass
 
+            # Wait for telemetry to finish before process exits
+            try:
+                self.telemetry.flush()
+            except Exception:
+                pass
+
             logger.info(f"\n{'='*60}")
             logger.info(f"✅ Cleanup completed in {duration:.1f} seconds  |  Space saved: {bytes_to_human_readable(total_bytes)}")
             logger.info(f"{'='*60}")
