@@ -5,6 +5,7 @@ import shutil
 import csv
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Tuple, Optional
@@ -109,34 +110,39 @@ class CleanupEngine:
         except Exception:
             return datetime.now()
     
-    def scan_for_targets(self, main_folder: str, target_name: str, days_threshold: int) -> List[Dict[str, Any]]:
-        """Scan for target folders that meet deletion criteria.
-        
-        Returns:
-            List of dictionaries with path, size, last_modified info
+    def _scan_all_targets(self, main_folder: str, targets: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Single filesystem walk that discovers ALL target types at once.
+
+        Instead of walking the entire tree N times (once per target), this
+        walks once and checks every directory name against all enabled targets.
+        Size calculations are then parallelized across threads.
         """
-        cutoff_date = datetime.now() - timedelta(days=days_threshold)
-        candidates = []
+        target_map = {t["name"]: timedelta(days=t["days_threshold"]) for t in targets}
+        target_names = set(target_map.keys())
         exclusions = self.config.get("exclusions", [])
-        logger.info(f"\n🔍 Scanning {main_folder} for '{target_name}' folders...")
+        now = datetime.now()
 
-        # Prune common heavy directories unless they are the target we are looking for
-        default_prune = {'.git', '.hg', '.svn', '.cache', '.m2', '.gradle', '.next', '.nuxt', '.venv', 'Library', 'node_modules'}
-        if target_name in default_prune:
-            default_prune.discard(target_name)
+        # Directories that are always pruned during walk (unless they are a target)
+        always_prune = {'.git', '.hg', '.svn', '.cache', '.m2', '.gradle',
+                        '.next', '.nuxt', 'Library'}
+        prune_set = (always_prune | target_names) - target_names.intersection(always_prune)
 
-        spinner = Spinner(message=f"Scanning '{target_name}'...")
+        logger.info(f"\n🔍 Scanning {main_folder} for all targets in a single pass...")
+        spinner = Spinner(message="Scanning filesystem...")
         scanned = 0
 
-        for root, dirs, files in os.walk(main_folder, topdown=True, followlinks=False):
-            # Prune symlinked directories and heavy defaults
+        # Phase 1: walk once, collect raw hits (path + target_name + parent)
+        raw_hits: List[Tuple[str, str, str]] = []
+
+        for root, dirs, _files in os.walk(main_folder, topdown=True, followlinks=False):
             pruned = []
             for d in list(dirs):
                 full = os.path.join(root, d)
                 if os.path.islink(full):
                     pruned.append(d)
                     continue
-                if d in default_prune:
+                # Prune heavy dirs, but NOT if they are a target we're scanning for
+                if d in prune_set and d not in target_names:
                     pruned.append(d)
             for d in pruned:
                 try:
@@ -144,43 +150,81 @@ class CleanupEngine:
                 except ValueError:
                     pass
 
-            if target_name in dirs:
-                target_path = os.path.join(root, target_name)
-                
-                # Safety checks
+            # Check every target in one shot
+            found_in_this_dir = target_names.intersection(dirs)
+            for tname in found_in_this_dir:
+                target_path = os.path.join(root, tname)
                 if is_protected_path(target_path):
-                    spinner.spin()
                     continue
-                
                 if is_path_excluded(target_path, exclusions):
-                    spinner.spin()
                     continue
-                
-                # Eligibility: parent project folder untouched for > threshold days
-                parent_path = root
-                last_modified = self.get_last_modified_time(parent_path)
-                
-                if last_modified < cutoff_date:
-                    folder_size = self.get_size(target_path)
-                    candidates.append({
-                        "path": target_path,
-                        "size": folder_size,
-                        "last_modified": last_modified.isoformat(),
-                        "type": "folder",
-                        "target_name": target_name
-                    })
-                    spinner.spin()
-                else:
-                    spinner.spin()
+                raw_hits.append((target_path, tname, root))
+                # Don't descend into the matched target directory
+                try:
+                    dirs.remove(tname)
+                except ValueError:
+                    pass
+
             scanned += 1
             if scanned % 200 == 0:
                 spinner.spin()
 
-        spinner.finish(f"Found {len(candidates)} '{target_name}' candidates")
-        logger.info(f"✓ Found {len(candidates)} '{target_name}' folders eligible for cleanup")
-        
+        spinner.finish(f"Scan complete — {len(raw_hits)} potential targets found")
+
+        if not raw_hits:
+            return []
+
+        # Phase 2: check parent staleness + compute sizes in parallel
+        logger.info(f"⚡ Evaluating {len(raw_hits)} candidates (parallel)...")
+        spinner = Spinner(message="Evaluating staleness & sizes...")
+        candidates: List[Dict[str, Any]] = []
+
+        # Cache parent mtime so we don't re-walk the same parent for venv + .venv
+        parent_mtime_cache: Dict[str, datetime] = {}
+
+        def _evaluate(hit: Tuple[str, str, str]) -> Optional[Dict[str, Any]]:
+            target_path, tname, parent = hit
+            threshold = target_map[tname]
+            cutoff = now - threshold
+
+            if parent not in parent_mtime_cache:
+                parent_mtime_cache[parent] = self.get_last_modified_time(parent)
+            last_mod = parent_mtime_cache[parent]
+
+            if last_mod >= cutoff:
+                return None
+
+            size = self.get_size(target_path)
+            return {
+                "path": target_path,
+                "size": size,
+                "last_modified": last_mod.isoformat(),
+                "type": "folder",
+                "target_name": tname,
+            }
+
+        workers = min(8, os.cpu_count() or 4)
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(_evaluate, h): h for h in raw_hits}
+            done = 0
+            for fut in as_completed(futures):
+                done += 1
+                if done % 10 == 0:
+                    spinner.spin()
+                result = fut.result()
+                if result is not None:
+                    candidates.append(result)
+
+        spinner.finish(f"{len(candidates)} folders eligible for cleanup")
+
+        # Per-target summary
+        from collections import Counter
+        counts = Counter(c["target_name"] for c in candidates)
+        for tname, cnt in sorted(counts.items()):
+            logger.info(f"   ✓ {tname}: {cnt} folder(s)")
+
         return candidates
-    
+
     def delete_or_archive_item(self, item: Dict[str, Any]) -> bool:
         """Delete or archive a single item.
         
@@ -189,7 +233,6 @@ class CleanupEngine:
         """
         path = item["path"]
         
-        # Validate safety
         is_safe, error_msg = validate_path_safety(path)
         if not is_safe:
             logger.warning(f"⚠️  Skipped unsafe path: {error_msg}")
@@ -198,19 +241,14 @@ class CleanupEngine:
         
         try:
             if self.archive_mode:
-                # Move to archive folder
                 archive_folder = self.config.get("safety", {}).get("archive_folder")
                 os.makedirs(archive_folder, exist_ok=True)
-                
-                # Create unique archive path (cross-platform, safe)
                 archive_path = self._compute_archive_path(archive_folder, path)
                 os.makedirs(os.path.dirname(archive_path), exist_ok=True)
-                
                 shutil.move(path, archive_path)
                 item["archived_to"] = archive_path
                 logger.info(f"📦 Archived: {path} → {archive_path}")
             else:
-                # Permanently delete
                 if os.path.isfile(path):
                     os.remove(path)
                 elif os.path.isdir(path):
@@ -226,31 +264,21 @@ class CleanupEngine:
     
     def cleanup_targets(self) -> int:
         """Clean up all enabled target folders.
-        
-        Returns:
-            Total size deleted in bytes
+
+        Scans the filesystem once for all targets, evaluates eligibility
+        and sizes in parallel, then performs deletions in parallel.
         """
         targets = self.config.get_enabled_targets()
         main_folder = self.config.get("main_folder")
-        all_candidates = []
-        
-        # Scan for all targets
-        for target in targets:
-            candidates = self.scan_for_targets(
-                main_folder,
-                target["name"],
-                target["days_threshold"]
-            )
-            all_candidates.extend(candidates)
+
+        all_candidates = self._scan_all_targets(main_folder, targets)
         
         if not all_candidates:
             logger.info("\n✓ No folders to clean up!")
             return 0
         
-        # Calculate total size
         total_size = sum(item["size"] for item in all_candidates)
         
-        # Check safety threshold
         safety_config = self.config.get("safety", {})
         exceeds_threshold, warning_msg = check_size_threshold(
             total_size,
@@ -260,7 +288,6 @@ class CleanupEngine:
         if exceeds_threshold:
             logger.warning(f"\n{warning_msg}")
         
-        # Show summary
         logger.info(f"\n📊 Summary:")
         logger.info(f"   Items to process: {len(all_candidates)}")
         logger.info(f"   Total size: {bytes_to_human_readable(total_size)}")
@@ -278,7 +305,6 @@ class CleanupEngine:
             
             return 0
         
-        # Ask for confirmation if above threshold
         confirmation_threshold = safety_config.get("require_confirmation_above_mb", 500)
         if total_size > confirmation_threshold * 1024 * 1024:
             if not confirm_deletion(
@@ -289,18 +315,26 @@ class CleanupEngine:
                 logger.info("❌ Operation cancelled by user.")
                 return 0
         
-        # Perform cleanup
-        logger.info(f"\n{'🚀 Starting cleanup...'}")
+        # Parallel deletion
+        logger.info(f"\n🚀 Starting cleanup ({min(4, len(all_candidates))} workers)...")
         progress = ProgressBar(len(all_candidates), prefix="Processing", width=40)
         
         successful = 0
-        for item in all_candidates:
-            if self.delete_or_archive_item(item):
-                self.deleted_items.append(item)
-                successful += 1
-                self.stats["folders_deleted"] += 1
-                self.stats["folders_size"] += item["size"]
-            progress.update()
+        workers = min(4, len(all_candidates))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(self.delete_or_archive_item, item): item
+                       for item in all_candidates}
+            for fut in as_completed(futures):
+                item = futures[fut]
+                try:
+                    if fut.result():
+                        self.deleted_items.append(item)
+                        successful += 1
+                        self.stats["folders_deleted"] += 1
+                        self.stats["folders_size"] += item["size"]
+                except Exception:
+                    pass
+                progress.update()
         
         progress.finish()
         
