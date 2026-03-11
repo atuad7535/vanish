@@ -79,34 +79,28 @@ class CleanupEngine:
             logger.debug(f"Error calculating size for {path}: {e}")
         return total_size
     
-    # Folders whose modification time should be ignored when determining
-    # whether a parent project is stale (they are dependencies/artifacts,
-    # not developer activity).
-    _SKIP_FOR_MTIME = frozenset({
-        'venv', '.venv', 'node_modules', '__pycache__', '.pytest_cache',
-        'build', 'dist', '.tox', 'target', '.git', '.hg', '.svn',
-        '.cache', '.m2', '.gradle', '.next', '.nuxt', 'Library',
-    })
+    @staticmethod
+    def get_last_modified_time(folder_path: str) -> datetime:
+        """Get the most recent modification time of the folder and its
+        immediate children (files only, no recursion).
 
-    def get_last_modified_time(self, folder_path: str) -> datetime:
-        """Get the most recent modification time of *source* files in a folder.
-
-        Skips dependency/artifact directories so that only real developer
-        activity counts toward the timestamp.
+        This is intentionally shallow: if the top-level project directory
+        and none of its direct files have been touched recently, the
+        project is considered stale regardless of what happened deeper
+        inside sub-folders.
         """
         try:
-            latest_time = os.path.getmtime(folder_path)
-
-            for root, dirs, files in os.walk(folder_path, topdown=True):
-                dirs[:] = [d for d in dirs if d not in self._SKIP_FOR_MTIME]
-                for fname in files:
-                    fpath = os.path.join(root, fname)
-                    try:
-                        latest_time = max(latest_time, os.path.getmtime(fpath))
-                    except OSError:
-                        pass
-
-            return datetime.fromtimestamp(latest_time)
+            latest = os.path.getmtime(folder_path)
+            try:
+                for entry in os.scandir(folder_path):
+                    if entry.is_file(follow_symlinks=False):
+                        try:
+                            latest = max(latest, entry.stat().st_mtime)
+                        except OSError:
+                            pass
+            except PermissionError:
+                pass
+            return datetime.fromtimestamp(latest)
         except Exception:
             return datetime.now()
     
