@@ -79,27 +79,40 @@ class CleanupEngine:
             logger.debug(f"Error calculating size for {path}: {e}")
         return total_size
     
-    @staticmethod
-    def get_last_modified_time(folder_path: str) -> datetime:
-        """Get the most recent modification time of the folder and its
-        immediate children (files only, no recursion).
+    # OS/editor metadata files that get auto-updated and should never
+    # count as real developer activity when checking staleness.
+    _IGNORE_FOR_MTIME = frozenset({
+        '.DS_Store', 'Thumbs.db', 'desktop.ini',  # OS metadata
+        '.directory',                               # KDE
+        '*.pyc',                                    # bytecode
+    })
 
-        This is intentionally shallow: if the top-level project directory
-        and none of its direct files have been touched recently, the
-        project is considered stale regardless of what happened deeper
-        inside sub-folders.
+    @classmethod
+    def get_last_modified_time(cls, folder_path: str) -> datetime:
+        """Most recent mtime of the immediate *source* files in a folder.
+
+        Only checks direct children (no recursion).  Ignores OS metadata
+        files like .DS_Store whose auto-updates would make every folder
+        appear fresh.  Falls back to the directory's own mtime only if
+        no real files are found.
         """
         try:
-            latest = os.path.getmtime(folder_path)
+            latest = 0.0  # epoch — will be overwritten by any real file
+            found_real_file = False
             try:
                 for entry in os.scandir(folder_path):
                     if entry.is_file(follow_symlinks=False):
+                        if entry.name in cls._IGNORE_FOR_MTIME:
+                            continue
                         try:
                             latest = max(latest, entry.stat().st_mtime)
+                            found_real_file = True
                         except OSError:
                             pass
             except PermissionError:
                 pass
+            if not found_real_file:
+                latest = os.path.getmtime(folder_path)
             return datetime.fromtimestamp(latest)
         except Exception:
             return datetime.now()
