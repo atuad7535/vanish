@@ -79,43 +79,102 @@ class CleanupEngine:
             logger.debug(f"Error calculating size for {path}: {e}")
         return total_size
     
-    # OS/editor metadata files that get auto-updated and should never
+    # OS/editor metadata FILES that get auto-updated and should never
     # count as real developer activity when checking staleness.
-    _IGNORE_FOR_MTIME = frozenset({
-        '.DS_Store', 'Thumbs.db', 'desktop.ini',  # OS metadata
-        '.directory',                               # KDE
-        '*.pyc',                                    # bytecode
+    _IGNORE_NAMES_FOR_MTIME = frozenset({
+        '.DS_Store',                                # macOS Finder metadata
+        'Thumbs.db', 'ehthumbs.db',                 # Windows thumbnail caches
+        'ehthumbs_vista.db',                        # older Windows
+        'desktop.ini',                              # Windows folder config
+        '.directory',                               # KDE folder metadata
+        'Icon\r',                                   # macOS custom folder icon
+    })
+    _IGNORE_EXTENSIONS_FOR_MTIME = frozenset({
+        '.pyc', '.pyo',                             # Python bytecode
+    })
+
+    # Subdirectories that should NOT be checked when looking one level
+    # deeper for recent source-file activity (they are either targets
+    # themselves, VCS internals, or tool-generated caches).
+    _SKIP_SUBDIRS_FOR_MTIME = frozenset({
+        'venv', '.venv', 'env', '.env',
+        'node_modules', '__pycache__', '.eggs', '*.egg-info',
+        '.git', '.hg', '.svn',
+        '.tox', '.nox', '.mypy_cache', '.pytest_cache', '.ruff_cache',
+        '.next', '.nuxt', 'dist', 'build',
+        '.idea', '.vscode',
     })
 
     @classmethod
-    def get_last_modified_time(cls, folder_path: str) -> datetime:
-        """Most recent mtime of the immediate *source* files in a folder.
+    def _should_ignore_file(cls, name: str) -> bool:
+        """True if *name* is an OS/editor metadata artifact."""
+        if name in cls._IGNORE_NAMES_FOR_MTIME:
+            return True
+        _, ext = os.path.splitext(name)
+        return ext.lower() in cls._IGNORE_EXTENSIONS_FOR_MTIME
 
-        Only checks direct children (no recursion).  Ignores OS metadata
-        files like .DS_Store whose auto-updates would make every folder
-        appear fresh.  Falls back to the directory's own mtime only if
-        no real files are found.
+    @classmethod
+    def get_last_modified_time(cls, folder_path: str) -> datetime:
+        """Most recent mtime of *source* files in a folder.
+
+        Phase 1: checks immediate children (files only, ignoring OS
+        metadata like .DS_Store and bytecode .pyc).
+        Phase 2 (fallback): if Phase 1 found nothing, scans one level
+        deeper into visible, non-artifact subdirectories.  This handles
+        projects whose root has no files — only dirs like ``src/``.
+        Phase 3 (final fallback): if still nothing, returns epoch so the
+        target is always considered stale.
+
+        The previous approach fell back to ``os.path.getmtime(folder)``
+        which is unreliable: on macOS it is bumped by .DS_Store creation,
+        on Windows by thumbnail cache writes, and on Linux by Tracker/
+        Baloo indexing touching directory entries.
         """
         try:
-            latest = 0.0  # epoch — will be overwritten by any real file
-            found_real_file = False
+            latest = 0.0
+            found = False
+
+            # --- Phase 1: immediate files ---
             try:
                 for entry in os.scandir(folder_path):
                     if entry.is_file(follow_symlinks=False):
-                        if entry.name in cls._IGNORE_FOR_MTIME:
+                        if cls._should_ignore_file(entry.name):
                             continue
                         try:
                             latest = max(latest, entry.stat().st_mtime)
-                            found_real_file = True
+                            found = True
                         except OSError:
                             pass
             except PermissionError:
                 pass
-            if not found_real_file:
-                latest = os.path.getmtime(folder_path)
+
+            # --- Phase 2: one level deeper into visible subdirs ---
+            if not found:
+                try:
+                    for entry in os.scandir(folder_path):
+                        if not entry.is_dir(follow_symlinks=False):
+                            continue
+                        if entry.name.startswith('.') or entry.name in cls._SKIP_SUBDIRS_FOR_MTIME:
+                            continue
+                        try:
+                            for sub in os.scandir(entry.path):
+                                if sub.is_file(follow_symlinks=False):
+                                    if cls._should_ignore_file(sub.name):
+                                        continue
+                                    try:
+                                        latest = max(latest, sub.stat().st_mtime)
+                                        found = True
+                                    except OSError:
+                                        pass
+                        except PermissionError:
+                            pass
+                except PermissionError:
+                    pass
+
+            # --- Phase 3: nothing found → treat as stale (epoch) ---
             return datetime.fromtimestamp(latest)
         except Exception:
-            return datetime.now()
+            return datetime.fromtimestamp(0)
     
     def _scan_all_targets(self, main_folder: str, targets: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Single filesystem walk that discovers ALL target types at once.
@@ -129,9 +188,18 @@ class CleanupEngine:
         exclusions = self.config.get("exclusions", [])
         now = datetime.now()
 
-        # Directories that are always pruned during walk (unless they are a target)
-        always_prune = {'.git', '.hg', '.svn', '.cache', '.m2', '.gradle',
-                        '.next', '.nuxt', 'Library'}
+        # Directories that are always pruned during walk (unless they are a target).
+        # Covers macOS, Windows, and Linux system/cache dirs that are heavy and
+        # will never contain developer project targets.
+        always_prune = {
+            '.git', '.hg', '.svn',                          # VCS internals
+            '.cache', '.m2', '.gradle',                     # build caches
+            '.next', '.nuxt',                               # JS framework outputs
+            'Library', '.Trash',                            # macOS
+            '$RECYCLE.BIN', 'System Volume Information',    # Windows
+            'lost+found',                                   # Linux / ext4
+            'AppData',                                      # Windows user cache
+        }
         prune_set = (always_prune | target_names) - target_names.intersection(always_prune)
 
         logger.info(f"\n🔍 Scanning {main_folder} for all targets in a single pass...")
