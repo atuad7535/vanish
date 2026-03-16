@@ -1,6 +1,6 @@
 """jhadoo - Smart cleanup tool for development environments."""
 
-__version__ = "1.2.7"
+__version__ = "1.2.8"
 __author__ = "Bhavishya"
 __description__ = "Automated cleanup tool for any unused files and folders in development environments"
 
