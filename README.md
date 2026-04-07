@@ -61,15 +61,43 @@ vanish telemetry status       # Check telemetry
 
 ## Install
 
+### macOS
+
 ```bash
-# Recommended (all features)
+brew install pipx
+pipx ensurepath
+source ~/.zshrc
 pipx install "vanish[all]"
+vanish scan --dry-run
+```
 
-# Or with pip
+### Windows (PowerShell)
+
+```powershell
+pip install pipx
+pipx ensurepath
+# Restart your terminal, then:
+pipx install "vanish[all]"
+vanish scan --dry-run
+```
+
+### Linux
+
+```bash
+sudo apt install pipx   # or: pip install pipx
+pipx ensurepath
+source ~/.bashrc
+pipx install "vanish[all]"
+vanish scan --dry-run
+```
+
+### Alternative (pip)
+
+```bash
 pip install "vanish[all]"
-
-# Minimal (no TUI, no trash integration)
-pip install vanish
+# If 'vanish' command not found, add pip's bin to PATH:
+# macOS/Linux: export PATH="$HOME/.local/bin:$PATH"
+# Then run: vanish scan --dry-run
 ```
 
 ## Privacy & Telemetry

@@ -46,7 +46,8 @@ if _HAS_TEXTUAL:
         BINDINGS = [
             Binding("space", "toggle_select", "Select/Deselect"),
             Binding("a", "select_all", "Select All"),
-            Binding("enter", "confirm", "Delete Selected"),
+            Binding("enter", "confirm", "delete", priority=True),
+            Binding("d", "confirm", "Delete Selected"),
             Binding("q", "quit", "Quit"),
         ]
 
