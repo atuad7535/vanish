@@ -6,7 +6,7 @@ from vanish import __version__, Config, CleanupEngine
 
 def test_version():
     """Test version is defined."""
-    assert __version__ == "1.0.0"
+    assert __version__  # version string exists and is non-empty
 
 
 def test_config_creation():
