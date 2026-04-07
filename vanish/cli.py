@@ -111,7 +111,17 @@ def _run_scan(dry_run: bool, archive: bool, config_path: Optional[str],
 
         for item in selected:
             engine.delete_or_archive_item(item)
-        console.print(f"[green]Processed {len(selected)} items.[/green]")
+
+        total_bytes = sum(i["size"] for i in selected)
+        from . import messages
+        msg = messages.get_completion_message(
+            total_bytes / (1024 * 1024), len(selected))
+        console.print(f"\n[green]{msg}[/green]")
+
+        from .notifications import notify_completion
+        notify_completion(total_bytes / (1024 * 1024), len(selected),
+                          speak_aloud=sound)
+
         raise typer.Exit(0)
 
     result = engine.run()
