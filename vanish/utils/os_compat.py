@@ -1,4 +1,4 @@
-"""OS compatibility utilities for cross-platform support."""
+"""OS compatibility utilities for cross-platform vanish support."""
 
 import os
 import platform
@@ -22,11 +22,11 @@ def get_default_bin_folder() -> str:
     
     if system == "darwin":  # macOS
         # Use custom bin instead of .Trash due to permission issues
-        return str(Path.home() / "bin" / "jhadoo_trash")
+        return str(Path.home() / "bin" / "vanish_trash")
     elif system == "windows":
-        return str(Path.home() / "AppData" / "Local" / "jhadoo_trash")
+        return str(Path.home() / "AppData" / "Local" / "vanish_trash")
     else:  # Linux and others
-        return str(Path.home() / ".local" / "share" / "Trash" / "jhadoo")
+        return str(Path.home() / ".local" / "share" / "Trash" / "vanish")
 
 
 def get_protected_paths() -> Set[str]:

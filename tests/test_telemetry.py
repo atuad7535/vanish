@@ -4,11 +4,11 @@ import unittest
 import json
 import os
 from unittest.mock import patch, MagicMock
-from jhadoo.telemetry import TelemetryClient
+from vanish.telemetry import TelemetryClient
 
 
 class TestTelemetryClient(unittest.TestCase):
-    
+
     def setUp(self):
         self.config = {
             "telemetry": {
@@ -23,12 +23,11 @@ class TestTelemetryClient(unittest.TestCase):
         """Test that user ID is generated and persisted."""
         self.assertIsNotNone(self.client.user_id)
         self.assertNotEqual(self.client.user_id, "unknown-user")
-        
-        # Verify persistence
-        config_dir = os.path.expanduser("~/.jhadoo")
+
+        config_dir = os.path.expanduser("~/.vanish")
         id_file = os.path.join(config_dir, "telemetry_id.json")
         self.assertTrue(os.path.exists(id_file))
-        
+
         with open(id_file, 'r') as f:
             data = json.load(f)
             self.assertEqual(data['user_id'], self.client.user_id)
@@ -40,12 +39,12 @@ class TestTelemetryClient(unittest.TestCase):
         mock_response.status = 200
         mock_response.__enter__.return_value = mock_response
         mock_urlopen.return_value = mock_response
-        
+
         payload = {
             "event_type": "cleanup_completed",
             "device_id": "test-id",
             "timestamp": "2023-01-01",
-            "version": "1.2.3",
+            "version": "1.0.0",
             "platform": {"system": "TestOS", "python_version": "3.12.0"},
             "data": {"bytes_saved": 1000, "total_size_mb": 0.0, "duration_seconds": 1.5},
         }

@@ -1,4 +1,4 @@
-"""Anonymous telemetry for tracking global cleanup impact."""
+"""Anonymous telemetry for vanish cleanup impact tracking."""
 
 import os
 import json
@@ -47,7 +47,7 @@ class TelemetryClient:
         """Get existing user ID or generate a new anonymous UUID."""
         config_dir = os.path.dirname(self.config.get("logging", {}).get("log_file", ""))
         if not config_dir:
-            config_dir = os.path.expanduser("~/.jhadoo")
+            config_dir = os.path.expanduser("~/.vanish")
 
         id_file = os.path.join(config_dir, "telemetry_id.json")
 
@@ -73,18 +73,26 @@ class TelemetryClient:
 
         from . import __version__ as pkg_version
 
+        total_size_mb = round(bytes_saved / (1024 * 1024), 2)
+
         payload = {
             "event_type": "cleanup_completed",
             "device_id": self.user_id,
+            "user_id": self.user_id,
             "timestamp": datetime.now().isoformat(),
             "version": pkg_version,
+            "os": platform.system(),
+            "python_version": platform.python_version(),
+            "bytes_saved": bytes_saved,
+            "total_size_mb": total_size_mb,
+            "duration_seconds": round(duration_seconds, 2),
             "platform": {
                 "system": platform.system(),
                 "python_version": platform.python_version(),
             },
             "data": {
                 "bytes_saved": bytes_saved,
-                "total_size_mb": round(bytes_saved / (1024 * 1024), 2),
+                "total_size_mb": total_size_mb,
                 "duration_seconds": round(duration_seconds, 2),
             },
         }

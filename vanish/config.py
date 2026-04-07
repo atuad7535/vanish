@@ -1,4 +1,4 @@
-"""Configuration management for jhadoo."""
+"""Configuration management for vanish."""
 
 import json
 import os
@@ -117,13 +117,13 @@ class Config:
             self.config["bin_folder"] = get_default_bin_folder()
         
         if self.config["safety"]["archive_folder"] is None:
-            self.config["safety"]["archive_folder"] = os.path.join(home, ".jhadoo_archive")
+            self.config["safety"]["archive_folder"] = os.path.join(home, ".vanish_archive")
         
         if self.config["logging"]["log_file"] is None:
-            self.config["logging"]["log_file"] = os.path.join(home, ".jhadoo", "cleanup_log.csv")
+            self.config["logging"]["log_file"] = os.path.join(home, ".vanish", "cleanup_log.csv")
         
         if self.config["logging"]["manifest_file"] is None:
-            self.config["logging"]["manifest_file"] = os.path.join(home, ".jhadoo", "deletion_manifest.json")
+            self.config["logging"]["manifest_file"] = os.path.join(home, ".vanish", "deletion_manifest.json")
     
     def load_from_file(self, config_path: str):
         """Load configuration from JSON file."""

@@ -5,12 +5,12 @@ import json
 
 # Initialize BigQuery client
 client = bigquery.Client()
-dataset_id = 'jhadoo_analytics'
+dataset_id = 'vanish_analytics'
 table_id = 'cleanup_stats'
 
 @functions_framework.http
 def receive_telemetry(request):
-    """HTTP Cloud Function to receive Jhadoo telemetry."""
+    """HTTP Cloud Function to receive vanish telemetry."""
     
     # Handle CORS
     if request.method == 'OPTIONS':

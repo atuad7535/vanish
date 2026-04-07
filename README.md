@@ -1,14 +1,14 @@
-# 🧹 jhadoo — one command to reclaim disk space
+# vanish — poof. your dev junk vanished.
 
-[![PyPI version](https://badge.fury.io/py/jhadoo.svg)](https://badge.fury.io/py/jhadoo) [![Total Downloads](https://static.pepy.tech/badge/jhadoo?style=flat&units=international_system)](https://pepy.tech/projects/jhadoo) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI version](https://badge.fury.io/py/vanish.svg)](https://badge.fury.io/py/vanish) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Every AI-assisted coding session spins up a fresh `venv`, `node_modules`, or build cache. Multiply that by dozens of projects and your disk is quietly eaten alive. **jhadoo** finds every stale environment across your entire machine and reclaims the space in seconds — so you can keep vibe coding without ever worrying about storage.
+Every AI-assisted coding session spins up a fresh `venv`, `node_modules`, or build cache. Multiply that by dozens of projects and your disk is quietly eaten alive. **vanish** finds every stale environment across your entire machine and reclaims the space in seconds — so you can keep vibe coding without ever worrying about storage.
 
 ```bash
-pipx install jhadoo && jhadoo --dry-run
+pipx install vanish && vanish scan --dry-run
 ```
 
-## Why jhadoo?
+## Why vanish?
 
 Vibe coding with Cursor, Copilot, Bolt, Windsurf, or any AI tool is incredibly productive — but it leaves behind a trail of heavyweight folders that pile up fast:
 
@@ -19,48 +19,64 @@ Vibe coding with Cursor, Copilot, Bolt, Windsurf, or any AI tool is incredibly p
 | `__pycache__` | 1 – 50 MB | Python runtime |
 | `build` / `dist` | varies | Every build cycle |
 
-A few weeks of vibe coding can silently consume **20–50 GB**. jhadoo scans your entire home directory, identifies projects you haven't touched in a while, and cleans up their heavy folders — automatically, safely, and in parallel.
+A few weeks of vibe coding can silently consume **20–50 GB**. vanish scans your entire home directory, identifies projects you haven't touched in a while, and cleans up their heavy folders — automatically, safely, and in parallel.
 
 ## Features
 
-- **Universal** — cleans venv, node_modules, build, dist, target, caches, or any custom folder name
-- **Smart staleness detection** — only cleans folders whose parent project is genuinely inactive (ignores OS metadata like .DS_Store, Thumbs.db, etc. that create false freshness)
-- **Safe** — dry‑run, size caps, confirmations, archive with one‑click restore
+- **Universal** — cleans venv, node_modules, build, dist, target, caches, or any custom folder via plugins
+- **Smart staleness detection** — only cleans folders whose parent project is genuinely inactive
+- **Safe** — dry-run, size caps, confirmations, archive with one-click restore, OS Trash support
 - **Fast** — single-pass parallel scan; prunes heavy dirs (.git, .cache, Library, $RECYCLE.BIN, etc.)
-- **Scheduled** — built‑in cron / Task Scheduler support
-- **Git Analysis** — detect stale branches & large files (`--git-check`)
-- **Docker Cleanup** — prune unused images (`--docker`)
-- **Dashboard** — track your savings over time (`--dashboard`)
-- **Cross‑platform** — macOS, Windows, Linux
-- **Private** — anonymous opt‑out‑anytime telemetry; no IPs, paths, or file names collected
+- **Beautiful** — Rich terminal output with colored tables, progress bars, and gen-z meme notifications
+- **Interactive** — optional TUI mode for visual multi-select cleanup
+- **Junk Score** — see how much of each project is regenerable junk vs. source code
+- **Doctor** — full project health report (disk, Git, Docker, dependency staleness)
+- **Scheduled** — built-in cron / Task Scheduler support + watch/daemon mode
+- **Gamified** — streaks, milestones, and levels to keep you coming back
+- **CI-ready** — JSON output mode with threshold-based exit codes
+- **Extensible** — plugin system for custom cleanup targets
+- **Cross-platform** — macOS, Windows, Linux
 
-## Usage
+## Quick Start
 
 ```bash
-jhadoo                # clean now
-jhadoo --dry-run      # safe preview
-jhadoo --archive      # move instead of delete
-jhadoo --restore      # undo last archive
-jhadoo --dashboard    # view savings & trends
+vanish                        # Just works. Scan + clean.
+vanish scan --dry-run         # Preview what would be deleted
+vanish scan --archive         # Archive instead of delete
+vanish scan --trash           # Send to OS Trash (needs: pip install vanish[trash])
+vanish scan --interactive     # TUI mode (needs: pip install vanish[tui])
+vanish restore                # Restore from last archive
+vanish stats                  # Dashboard + savings history
+vanish stats --json           # Machine-readable for scripts
+vanish junk-score             # Project junk vs source ratio
+vanish doctor                 # Full project health report
+vanish ci --max-junk 5        # CI mode: exit 1 if junk > 5 GB
+vanish watch                  # Daemon mode (periodic scan)
+vanish schedule daily         # Set up recurring cleanup
+vanish profile                # Your gamification stats
+vanish plugin list            # Show loaded plugins
+vanish config generate        # Create sample config
+vanish telemetry status       # Check telemetry
 ```
-
-See [`examples/`](examples/) for config, scheduling, Python API, and more.
 
 ## Install
 
 ```bash
-# Recommended
-pipx install jhadoo
+# Recommended (all features)
+pipx install "vanish[all]"
 
-# Or
-pip install jhadoo
+# Or with pip
+pip install "vanish[all]"
+
+# Minimal (no TUI, no trash integration)
+pip install vanish
 ```
 
 ## Privacy & Telemetry
 
 Anonymous telemetry tracks global space savings (random ID, bytes saved, OS, version — nothing else).
-- Disable: `jhadoo --telemetry-off`
-- Status: `jhadoo --telemetry-status`
+- Disable: `vanish telemetry off`
+- Status: `vanish telemetry status`
 
 ## License
 
@@ -68,4 +84,4 @@ MIT — see [LICENSE](LICENSE)
 
 ---
 
-If this saved you GBs, please ⭐️ the repo.
+If this saved you GBs, please star the repo.

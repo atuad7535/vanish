@@ -1,4 +1,4 @@
-"""Built-in scheduler for automated cleanup tasks."""
+"""Built-in scheduler for automated vanish cleanup tasks."""
 
 import sys
 import platform
@@ -9,29 +9,24 @@ import shlex
 
 
 class Scheduler:
-    """Cross-platform scheduler for jhadoo."""
+    """Cross-platform scheduler for vanish."""
     
     def __init__(self):
         self.system = platform.system().lower()
-        self.jhadoo_path = self._get_jhadoo_path()
-    
-    # def _get_jhadoo_path(self) -> str:
-    #     """Get path to jhadoo executable."""
-    #     result = subprocess.run(['which', 'jhadoo'], capture_output=True, text=True)
-    #     return result.stdout.strip() if result.returncode == 0 else f"{sys.executable} -m jhadoo"
+        self.vanish_path = self._get_vanish_path()
 
-    def _get_jhadoo_path(self):
-        """Return path to jhadoo executable in a cross-platform way."""
-        jhadoo_path = shutil.which("jhadoo")
-        if jhadoo_path:
-            return jhadoo_path.strip()
+    def _get_vanish_path(self):
+        """Return path to vanish executable in a cross-platform way."""
+        vanish_path = shutil.which("vanish")
+        if vanish_path:
+            return vanish_path.strip()
         else:
-            return f'"{sys.executable}" -m jhadoo'  # Fall back to running the module directly via Python
+            return f'"{sys.executable}" -m vanish'
     
     def schedule(self, frequency: str, config_path: Optional[str] = None, 
                  dry_run: bool = False, archive: bool = False) -> bool:
-        """Schedule jhadoo to run automatically."""
-        cmd_parts = [self.jhadoo_path]
+        """Schedule vanish to run automatically."""
+        cmd_parts = [self.vanish_path]
         if config_path:
             cmd_parts += ["--config", config_path]
         if dry_run:
@@ -67,9 +62,9 @@ class Scheduler:
             result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
             existing = result.stdout if result.returncode == 0 else ""
             
-            if 'jhadoo' in existing:
+            if 'vanish' in existing:
                 print("⚠️  Updating existing schedule...")
-                existing = '\n'.join([l for l in existing.split('\n') if 'jhadoo' not in l.lower()])
+                existing = '\n'.join([l for l in existing.split('\n') if 'vanish' not in l.lower()])
             
             new_crontab = existing.strip() + f"\n{cron_expr} {command}\n"
             process = subprocess.Popen(['crontab', '-'], stdin=subprocess.PIPE, text=True)
@@ -92,7 +87,7 @@ class Scheduler:
             }
             schedule = freq_map.get(frequency.lower(), '/SC DAILY /ST 02:00')
             
-            cmd_parts = ['schtasks', '/CREATE', '/TN', 'jhadooCleanup',
+            cmd_parts = ['schtasks', '/CREATE', '/TN', 'vanishCleanup',
                         '/TR', command, '/F'] + schedule.split()
             
             result = subprocess.run(cmd_parts, capture_output=True, text=True)
@@ -105,7 +100,7 @@ class Scheduler:
             return False
     
     def list_schedules(self):
-        """List all scheduled jhadoo tasks."""
+        """List all scheduled vanish tasks."""
         print("\n📅 Scheduled Tasks:")
         print("=" * 60)
         
@@ -114,29 +109,29 @@ class Scheduler:
                 result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
                 if result.returncode == 0:
                     lines = [l for l in result.stdout.split('\n') 
-                            if 'jhadoo' in l.lower() and not l.startswith('#')]
+                            if 'vanish' in l.lower() and not l.startswith('#')]
                     print('\n'.join(f"  • {l}" for l in lines) if lines else "  None found")
             elif self.system == "windows":
-                result = subprocess.run(['schtasks', '/Query', '/TN', 'jhadooCleanup'],
+                result = subprocess.run(['schtasks', '/Query', '/TN', 'vanishCleanup'],
                                       capture_output=True, text=True)
                 print(result.stdout if result.returncode == 0 else "  None found")
         except Exception as e:
             print(f"  Error: {e}")
     
     def remove_schedule(self) -> bool:
-        """Remove all jhadoo scheduled tasks."""
+        """Remove all vanish scheduled tasks."""
         print("\n🗑️  Removing schedules...")
         try:
             if self.system in ["darwin", "linux"]:
                 result = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
                 if result.returncode == 0:
-                    lines = [l for l in result.stdout.split('\n') if 'jhadoo' not in l.lower()]
+                    lines = [l for l in result.stdout.split('\n') if 'vanish' not in l.lower()]
                     process = subprocess.Popen(['crontab', '-'], stdin=subprocess.PIPE, text=True)
                     process.communicate(input='\n'.join(lines))
                 print("✅ Removed")
                 return True
             elif self.system == "windows":
-                subprocess.run(['schtasks', '/Delete', '/TN', 'jhadooCleanup', '/F'],
+                subprocess.run(['schtasks', '/Delete', '/TN', 'vanishCleanup', '/F'],
                              capture_output=True)
                 print("✅ Removed")
                 return True

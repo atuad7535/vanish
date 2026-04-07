@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vanish"
+version = "1.0.0"
+description = "poof. your dev junk vanished. Smart cleanup for developers."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Atul Anand"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: System :: Filesystems",
+    "Topic :: Utilities",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+]
+keywords = [
+    "cleanup", "disk-space", "file-management", "folder-cleanup",
+    "development-tools", "build-cleanup", "cache-cleanup",
+    "automation", "devops", "node-modules", "venv",
+]
+dependencies = [
+    "typer>=0.9",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+tui = ["textual>=0.40"]
+trash = ["send2trash>=1.8"]
+notifications = ["winotify>=1.1; platform_system=='Windows'"]
+all = [
+    "textual>=0.40",
+    "send2trash>=1.8",
+    "winotify>=1.1; platform_system=='Windows'",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "flake8>=6.0",
+    "mypy>=1.0",
+]
+
+[project.scripts]
+vanish = "vanish.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/atuad7535/vanish"
+"Bug Tracker" = "https://github.com/atuad7535/vanish/issues"
+Documentation = "https://github.com/atuad7535/vanish#readme"
+"Source Code" = "https://github.com/atuad7535/vanish"
+
+[tool.setuptools.packages.find]
+exclude = ["tests", "tests.*"]
+
+[tool.setuptools.package-data]
+vanish = ["assets/*.mp3", "assets/*.png", "assets/*.jpg"]

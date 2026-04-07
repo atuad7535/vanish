@@ -1,4 +1,4 @@
-"""Utility modules for jhadoo."""
+"""Utility modules for vanish."""
 
 from .os_compat import (
     get_system,
@@ -38,5 +38,3 @@ __all__ = [
     'create_deletion_manifest',
     'validate_path_safety'
 ]
-
-

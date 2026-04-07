@@ -1,12 +1,12 @@
-"""Basic tests for jhadoo package."""
+"""Basic tests for vanish package."""
 
 import pytest
-from jhadoo import __version__, Config, CleanupEngine
+from vanish import __version__, Config, CleanupEngine
 
 
 def test_version():
     """Test version is defined."""
-    assert __version__ == "1.2.8"
+    assert __version__ == "1.0.0"
 
 
 def test_config_creation():

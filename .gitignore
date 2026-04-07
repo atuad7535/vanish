@@ -36,19 +36,22 @@ coverage.xml
 *.cover
 .pytest_cache/
 
-# Jhadoo specific
-jhadoo_config.json
+# vanish runtime artifacts
+vanish_config.json
 *.log
-.jhadoo/
-.jhadoo_archive/
+.vanish/
+.vanish_archive/
 cleanup_log.csv
 deletion_manifest.json
+
 
 # Documentation Artifacts
 *.md
 !README.md
+!CHANGELOG.md
+!vanish.md
 
-# IDEs
+# IDEs & tooling
 .vscode/
 .idea/
 .DS_Store

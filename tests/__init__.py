@@ -1,3 +1,1 @@
-"""Test suite for jhadoo."""
-
-
+"""Test suite for vanish."""
