@@ -1,43 +1,53 @@
 """Tests for the Typer CLI interface."""
 
+import re
 from typer.testing import CliRunner
 from vanish.cli import app
 from vanish import __version__
 
 runner = CliRunner()
 
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _plain(text: str) -> str:
+    return _ANSI_RE.sub("", text)
+
 
 def test_version():
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
-    assert __version__ in result.stdout
+    assert __version__ in _plain(result.stdout)
 
 
 def test_help():
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    assert "vanish" in result.stdout
-    assert "scan" in result.stdout
-    assert "stats" in result.stdout
-    assert "doctor" in result.stdout
+    out = _plain(result.stdout)
+    assert "vanish" in out
+    assert "scan" in out
+    assert "stats" in out
+    assert "doctor" in out
 
 
 def test_scan_help():
     result = runner.invoke(app, ["scan", "--help"])
     assert result.exit_code == 0
-    assert "--dry-run" in result.stdout
-    assert "--archive" in result.stdout
-    assert "--trash" in result.stdout
-    assert "--interactive" in result.stdout
+    out = _plain(result.stdout)
+    assert "--dry-run" in out
+    assert "--archive" in out
+    assert "--trash" in out
+    assert "--interactive" in out
 
 
 def test_schedule_help():
     result = runner.invoke(app, ["schedule", "--help"])
     assert result.exit_code == 0
-    assert "daily" in result.stdout
-    assert "weekly" in result.stdout
-    assert "list" in result.stdout
-    assert "remove" in result.stdout
+    out = _plain(result.stdout)
+    assert "daily" in out
+    assert "weekly" in out
+    assert "list" in out
+    assert "remove" in out
 
 
 def test_config_generate():
@@ -51,13 +61,13 @@ def test_config_generate():
 def test_config_show():
     result = runner.invoke(app, ["config", "show"])
     assert result.exit_code == 0
-    assert "main_folder" in result.stdout
+    assert "main_folder" in _plain(result.stdout)
 
 
 def test_telemetry_status():
     result = runner.invoke(app, ["telemetry", "status"])
     assert result.exit_code == 0
-    assert "Telemetry" in result.stdout
+    assert "Telemetry" in _plain(result.stdout)
 
 
 def test_plugin_list():
@@ -68,4 +78,4 @@ def test_plugin_list():
 def test_profile():
     result = runner.invoke(app, ["profile"])
     assert result.exit_code == 0
-    assert "vanish Profile" in result.stdout
+    assert "vanish Profile" in _plain(result.stdout)
