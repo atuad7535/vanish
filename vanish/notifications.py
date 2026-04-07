@@ -68,8 +68,10 @@ def _try_pyobjc_notification(title: str, message: str, sound: bool) -> bool:
 
 
 def _try_osascript_notification(title: str, message: str, sound: bool):
-    safe_title = title.replace('\\', '\\\\').replace('"', '\\"')
-    safe_msg = message.replace('\\', '\\\\').replace('"', '\\"')
+    import re
+    _strip = lambda t: re.sub(r'[^\x00-\x7F]+', '', t).strip()
+    safe_title = _strip(title).replace('\\', '\\\\').replace('"', '\\"') or "vanish"
+    safe_msg = _strip(message).replace('\\', '\\\\').replace('"', '\\"') or "Cleanup complete"
     sound_param = ' sound name "default"' if sound else ""
     script = f'display notification "{safe_msg}" with title "{safe_title}"{sound_param}'
     subprocess.Popen(

@@ -8,7 +8,7 @@ long_description = (this_directory / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="vanish",
-    version="1.0.2",
+    version="1.0.3",
     author="Atul Anand",
     description="poof. your dev junk vanished. Smart cleanup for developers.",
     long_description=long_description,
@@ -43,11 +43,15 @@ setup(
         "trash": ["send2trash>=1.8"],
         "notifications": [
             "winotify>=1.1; platform_system=='Windows'",
+            "pyobjc-core>=9.0; sys_platform=='darwin'",
+            "pyobjc-framework-Cocoa>=9.0; sys_platform=='darwin'",
         ],
         "all": [
             "textual>=0.40",
             "send2trash>=1.8",
             "winotify>=1.1; platform_system=='Windows'",
+            "pyobjc-core>=9.0; sys_platform=='darwin'",
+            "pyobjc-framework-Cocoa>=9.0; sys_platform=='darwin'",
         ],
         "dev": [
             "pytest>=7.0",

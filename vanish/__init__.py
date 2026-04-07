@@ -1,6 +1,6 @@
 """vanish - poof. your dev junk vanished."""
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 __author__ = "Atul Anand"
 __description__ = "Smart cleanup tool for developers — removes unused venv, node_modules, Docker images, scans Git repos, and more"
 

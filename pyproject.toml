@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vanish"
-version = "1.0.2"
+version = "1.0.3"
 description = "poof. your dev junk vanished. Smart cleanup for developers."
 readme = "README.md"
 license = {text = "MIT"}
@@ -40,11 +40,17 @@ dependencies = [
 [project.optional-dependencies]
 tui = ["textual>=0.40"]
 trash = ["send2trash>=1.8"]
-notifications = ["winotify>=1.1; platform_system=='Windows'"]
+notifications = [
+    "winotify>=1.1; platform_system=='Windows'",
+    "pyobjc-core>=9.0; sys_platform=='darwin'",
+    "pyobjc-framework-Cocoa>=9.0; sys_platform=='darwin'",
+]
 all = [
     "textual>=0.40",
     "send2trash>=1.8",
     "winotify>=1.1; platform_system=='Windows'",
+    "pyobjc-core>=9.0; sys_platform=='darwin'",
+    "pyobjc-framework-Cocoa>=9.0; sys_platform=='darwin'",
 ]
 dev = [
     "pytest>=7.0",
